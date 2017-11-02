@@ -1,0 +1,15 @@
+b) xv6 Memory Layout
+Part A: Null-pointer Dereference
+
+* For this part, we modified the exec.c to allocate pages starting from 0x2000.
+* Then we modified the copyuvm in vm.c to start copying from pages starting at 0x2000.
+* Then we modified the related make files and wrote a user test 'fault.c' to test the functionality.
+
+Part B: Stack Rearrangement
+*  For this part, we modified the exec.c to allocate first stack page starting at USERTOP. we also made sure stack pointer sp points to right address.
+* We also modified the proc struct to keep track of stack size using 'stack_sz' variable.
+* We modified the copyuvm in vm.c to make sure that stack pages are also copied.
+* In proc.c, we made sure that the variable stack_sz is copied to new processes in fork.
+* In growproc() in proc.c, we added checks to make sure there is 5 pages gap between stack and growing heap.
+* In trap.c, we added a new Trap for page fault. In case of page fault a new page for stack will be allocated in downward direction, while making sure that growing stack and heap have a gap of 5 pages between them.
+* Finally we modified the fetchint(), fetchstr(), argptr() in syscall.c to do address validation according to new address space.

@@ -21,7 +21,7 @@ tvinit(void)
   for(i = 0; i < 256; i++)
     SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
   SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);
-  
+
   initlock(&tickslock, "time");
 }
 
@@ -75,8 +75,34 @@ trap(struct trapframe *tf)
             cpu->id, tf->cs, tf->eip);
     lapiceoi();
     break;
-   
+
+  case T_PGFLT:
+    // Page fault case. Allocate new page for stack if possible.
+    if(proc == 0 || (tf->cs&3) == 0){
+        cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
+        tf->trapno, cpu->id, tf->eip, rcr2());
+        panic("trap");
+    } else {
+        //   cprintf("proc->stack_sz:%x proc->sz:%x\n",proc->stack_sz, proc->sz);
+        uint st_address = rcr2();
+        if (st_address <= proc->stack_sz && st_address >= proc->stack_sz-PGSIZE && proc->stack_sz-PGSIZE*6 >= proc->sz) {
+            if((allocuvm(proc->pgdir, proc->stack_sz-PGSIZE, proc->stack_sz)) != 0) {
+                proc->stack_sz -= PGSIZE;
+                return;
+            }
+        }else{
+            // Segmentation fault. Kill process.
+            cprintf("pid %d %s: trap %d err %d on cpu %d "
+                "eip 0x%x addr 0x%x--kill proc\n",
+                proc->pid, proc->name, tf->trapno, tf->err, cpu->id, tf->eip,
+            rcr2());
+            proc->killed = 1;
+        }
+    }
+    break;
+
   default:
+
     if(proc == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
@@ -86,13 +112,13 @@ trap(struct trapframe *tf)
     // In user space, assume process misbehaved.
     cprintf("pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",
-            proc->pid, proc->name, tf->trapno, tf->err, cpu->id, tf->eip, 
+            proc->pid, proc->name, tf->trapno, tf->err, cpu->id, tf->eip,
             rcr2());
     proc->killed = 1;
   }
 
   // Force process exit if it has been killed and is in user space.
-  // (If it is still executing in the kernel, let it keep running 
+  // (If it is still executing in the kernel, let it keep running
   // until it gets to the regular system call return.)
   if(proc && proc->killed && (tf->cs&3) == DPL_USER)
     exit();

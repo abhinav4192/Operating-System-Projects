@@ -17,8 +17,16 @@
 int
 fetchint(struct proc *p, uint addr, int *ip)
 {
-  if(addr >= p->sz || addr+4 > p->sz)
-    return -1;
+  if(p->pid == 1 && p->stack_sz == 0) {
+    if(addr >= proc->sz || addr+4 > p->sz)
+      return -1;
+  } else {
+    if((addr >= p->sz && addr < p->stack_sz) ||
+        (addr+4 > p->sz && addr+4 < p->stack_sz) ||
+        addr < 2*PGSIZE || addr+4 > USERTOP)
+      return -1;
+  }
+
   *ip = *(int*)(addr);
   return 0;
 }
@@ -31,13 +39,32 @@ fetchstr(struct proc *p, uint addr, char **pp)
 {
   char *s, *ep;
 
-  if(addr >= p->sz)
-    return -1;
-  *pp = (char*)addr;
-  ep = (char*)p->sz;
-  for(s = *pp; s < ep; s++)
-    if(*s == 0)
-      return s - *pp;
+  if(p->pid == 1 && p->stack_sz == 0) {
+    if(addr >= proc->sz)
+      return -1;
+    *pp = (char*)addr;
+    ep = (char*)p->sz;
+    for(s = *pp; s < ep; s++)
+      if(*s == 0)
+        return s - *pp;
+  } else {
+    // In heap
+    if(addr >= 2*PGSIZE && addr < p->sz) {
+      *pp = (char*)addr;
+      ep = (char*)p->sz;
+      for(s = *pp; s < ep; s++)
+        if(*s == 0)
+          return s - *pp;
+    }
+    // In stack
+    if(addr >= p->stack_sz && addr < USERTOP) {
+      *pp = (char*)addr;
+      ep = (char*)USERTOP;
+      for(s = *pp; s < ep; s++)
+        if(*s == 0)
+          return s - *pp;
+    }
+  }
   return -1;
 }
 
@@ -55,11 +82,21 @@ int
 argptr(int n, char **pp, int size)
 {
   int i;
-  
+
   if(argint(n, &i) < 0)
     return -1;
-  if((uint)i >= proc->sz || (uint)i+size > proc->sz)
-    return -1;
+
+  if(proc->pid == 1 && proc->stack_sz == 0) {
+    if((uint)i >= proc->sz || (uint)i+size > proc->sz )
+      return -1;
+  } else {
+    if( ((uint)i >= proc->sz && (uint) i < proc->stack_sz) ||
+    ((uint)i+size > proc->sz && (uint)i+size < proc->stack_sz) ||
+    ((uint)i < proc->sz && (uint)i+size >= proc->stack_sz)
+    || (uint) i < 2*PGSIZE || (uint) i+size > USERTOP)
+      return -1;
+  }
+
   *pp = (char*)i;
   return 0;
 }
@@ -111,7 +148,7 @@ void
 syscall(void)
 {
   int num;
-  
+
   num = proc->tf->eax;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num] != NULL) {
     proc->tf->eax = syscalls[num]();
@@ -121,3 +158,5 @@ syscall(void)
     proc->tf->eax = -1;
   }
 }
+
+
