@@ -9,7 +9,7 @@ struct pipe;
 struct proc;
 struct spinlock;
 struct stat;
-
+struct pstat;
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -109,6 +109,7 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int             getpinfo(struct pstat *);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

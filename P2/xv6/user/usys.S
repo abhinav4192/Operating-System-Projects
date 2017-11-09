@@ -7,7 +7,7 @@
     movl $SYS_ ## name, %eax; \
     int $T_SYSCALL; \
     ret
-
+SYSCALL(getpinfo)
 SYSCALL(fork)
 SYSCALL(exit)
 SYSCALL(wait)

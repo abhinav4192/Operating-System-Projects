@@ -10,6 +10,8 @@
 #define SEG_TSS   6  // this process's task state
 #define NSEGS     7
 
+#include "procstate.h"
+
 // Per-CPU state
 struct cpu {
   uchar id;                    // Local APIC ID; index into cpus[] below
@@ -57,7 +59,6 @@ struct context {
   uint eip;
 };
 
-enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
 struct proc {
@@ -74,6 +75,12 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int priority;		           // Process current priority
+  int ticksCurrent;            // ticks running in current priority
+  int ticksWait;               // ticks waiting in current priority
+  int ticks[4];
+  int wait_ticks[4];
+
 };
 
 // Process memory is laid out contiguously, low addresses first:

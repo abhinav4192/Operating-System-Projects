@@ -16,10 +16,10 @@ static struct proc *initproc;
 static const int DEBUG = 0;
 
 int maxTicks[4] = { 0, 32, 16, 8 };       // Maximun Ticks at each level
-int starvationMax[3] = { 500, 320, 160 }; // Starvation ticks at each level
+int starvationMax[3] = { 500, 320, 160 }; // Starvation tics at each level
 struct proc *PQ[4][NPROC];                // to store processes at each priority
 
-// init all processes at ech priority as NULL
+
 void initPQ() {
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < NPROC; j++) {
@@ -28,7 +28,6 @@ void initPQ() {
     }
 }
 
-// utility to print PQ for debugging
 void printPQ() {
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < NPROC; j++) {
@@ -39,9 +38,8 @@ void printPQ() {
     }
 }
 
-// insert process iproc at priority pri in PQ
 void addToPQ(int pri, struct proc *iproc) {
-    //cprintf("Add process:%d pri:%d\n",iproc->pid,pri);
+    cprintf("Add process:%d pri:%d\n",iproc->pid,pri);
     if (DEBUG) cprintf("****************ADD BLOCK ******************\n");
     if (DEBUG) printPQ();
     if (DEBUG) cprintf("After print\n");
@@ -56,7 +54,6 @@ void addToPQ(int pri, struct proc *iproc) {
     if (DEBUG) cprintf("=============================================\n");
 }
 
-// delete process iproc at priority pri
 void deleteFromPQ(int pri, struct proc *iproc) {
     if (DEBUG) cprintf("**************** DELETE BLOCK ********************\n");
     if (DEBUG) printPQ();
@@ -81,7 +78,6 @@ void deleteFromPQ(int pri, struct proc *iproc) {
     if (DEBUG) cprintf("=============================================\n");
 }
 
-// update waitticks of all runnable processes other then iproc
 void updateTicks(struct proc *iproc) {
     struct proc *p;
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
@@ -94,8 +90,6 @@ void updateTicks(struct proc *iproc) {
     }
 }
 
-// remove completed processes from PQ and
-// increase priority of starved processes
 void boostPQ() {
     for (int i = 0; i < 4; i++) {
         int j = 0;
@@ -106,7 +100,7 @@ void boostPQ() {
             } else if (PQ[i][j]) {
                 if ((i != 3) && (PQ[i][j]->ticksWait >= starvationMax[i])) {
                     if (DEBUG) printPQ();
-                    if (DEBUG) cprintf(
+                    if (1) cprintf(
                             "Boosting pri:%d, pid: %d wait:%d, maxStarv%d\n",
                             i,
                             PQ[i][j]->pid,
@@ -397,8 +391,15 @@ scheduler(void) {
 
         // switch to process
         proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+        swtch(&cpu->scheduler, proc->context);
+        switchkvm();
 
-        p->ticksWait    = 0;
+        // Returs here from scheduler
+        updateTicks(p);
+
+        // p->ticksWait    = 0;
         ++p->ticksCurrent;                // increase ticks used in current
                                           // priority
         ++p->ticks[p->priority];          // increase total ticks used in
@@ -413,15 +414,13 @@ scheduler(void) {
             p->ticksWait    = 0;          // set wait ticks in new priority 0
         }
 
-        // schedule process
-        switchuvm(p);                                                                                                                                                                
-        p->state = RUNNING;
-        swtch(&cpu->scheduler, proc->context);
-        switchkvm();
+        // } else if ((p->priority != 0) &&
+        //            (p->ticksCurrent < maxTicks[p->priority])) {
+        //     deleteFromPQ(p->priority, p);
+        //     addToPQ(p->priority, p);
+        // }
 
-        // Returs here from scheduler
-        updateTicks(p);
-
+        // }
         proc = 0;
         release(&ptable.lock);
     }
@@ -483,7 +482,6 @@ sleep(void *chan, struct spinlock *lk) {
     // Go to sleep.
     proc->chan  = chan;
     proc->state = SLEEPING;
-    deleteFromPQ(proc->priority,proc);
     sched();
 
     // Tidy up.
@@ -502,13 +500,7 @@ static void
 wakeup1(void *chan) {
     struct proc *p;
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    {
-        if ((p->state == SLEEPING) && (p->chan == chan))
-        {
-            p->state = RUNNABLE;
-            addToPQ(p->priority,p);
-        }
-    }
+        if ((p->state == SLEEPING) && (p->chan == chan)) p->state = RUNNABLE;
 }
 
 // Wake up all processes sleeping on chan.
@@ -533,11 +525,7 @@ kill(int pid) {
             p->killed = 1;
 
             // Wake process from sleep if necessary.
-            if (p->state == SLEEPING)
-            {
-                 p->state = RUNNABLE;
-                 addToPQ(p->priority,p);
-            }
+            if (p->state == SLEEPING) p->state = RUNNABLE;
             release(&ptable.lock);
             return 0;
         }
@@ -550,41 +538,43 @@ kill(int pid) {
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
 void
-procdump(void)
-{
-  static char *states[] = {
-  [UNUSED]    "unused",
-  [EMBRYO]    "embryo",
-  [SLEEPING]  "sleep ",
-  [RUNNABLE]  "runble",
-  [RUNNING]   "run   ",
-  [ZOMBIE]    "zombie"
-  };
-  int i;
-  struct proc *p;
-  char *state;
-  uint pc[10];                                                                                                                                                                       
-  
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->state == UNUSED)
-      continue;
-    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
-      state = states[p->state];
-    else
-      state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
-    if(p->state == SLEEPING){
-      getcallerpcs((uint*)p->context->ebp+2, pc);
-      for(i=0; i<10 && pc[i] != 0; i++)
-        cprintf(" %p", pc[i]);
+procdump(void) {
+    static char *states[] = {
+        [UNUSED]    "unused",
+        [EMBRYO]    "embryo",
+        [SLEEPING]  "sleep ",
+        [RUNNABLE]  "runble",
+        [RUNNING]   "run   ",
+        [ZOMBIE]    "zombie"
+    };
+    int i;
+    struct proc *p;
+    char *state;
+    uint  pc[10];
+
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if (p->state == UNUSED) continue;
+        if ((p->state >= 0) && (p->state < NELEM(states)) &&
+            states[p->state]) state = states[p->state];
+        else state = "???";
+        cprintf("pid:%d state:%s name:%s pri:%d ticksC:%d ticksW:%d",
+                p->pid,
+                state,
+                p->name,
+                p->priority,
+                p->ticksCurrent,
+                p->ticksWait);
+        if (p->state == SLEEPING) {
+            getcallerpcs((uint *)p->context->ebp + 2, pc);
+            for (i = 0; i < 10 && pc[i] != 0; i++) cprintf(" %p", pc[i]);
+        }
+        cprintf("\n");
     }
-    cprintf("\n");
-  }
 }
 
 int getpinfo(struct pstat *p_stat) {
-    //procdump();
-    //printPQ();
+    procdump();
+    printPQ();
     for (int i = 0; i < NPROC; i++) {
         struct proc *curr = &ptable.proc[i];
         if (curr->state == UNUSED) p_stat->inuse[i] = 0;
@@ -593,7 +583,7 @@ int getpinfo(struct pstat *p_stat) {
             p_stat->pid[i]      = curr->pid;
             p_stat->priority[i] = curr->priority;
             p_stat->state[i]    = curr->state;
-            if (DEBUG) cprintf(
+            if (1) cprintf(
                     "Pid:%d pri:%d ticks: %d %d %d %d wait:%d %d %d %d\n",
                     curr->pid,
                     curr->priority,
