@@ -41,8 +41,12 @@ void free(void*);
 int atoi(const char*);
 
 // thread library functions (uthread.c)
+int lock_init(lock_t *ilock);
+void lock_acquire(lock_t *ilock);
+void lock_release(lock_t *ilock);
 int thread_create(void (*start_routine)(void*), void *arg);
 int thread_join();
+
 
 #endif // _USER_H_
 

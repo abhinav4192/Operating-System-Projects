@@ -1,9 +1,20 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
-#define PGSIZE 4096
+#include "x86.h"
 
-// Thread Library
+int lock_init(lock_t *ilock){
+	ilock->locked = 0;
+	return 0;
+}
+
+void lock_acquire(lock_t *ilock){
+	while(xchg(&ilock->locked, 1) != 0);
+}
+
+void lock_release(lock_t *ilock){
+	xchg(&ilock->locked, 0);
+}
 
 int thread_create(void (*start_routine)(void*), void *arg){
     printf(1,"thread_create\n");
