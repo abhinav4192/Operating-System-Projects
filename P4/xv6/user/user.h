@@ -40,5 +40,9 @@ void* malloc(uint);
 void free(void*);
 int atoi(const char*);
 
+// thread library functions (uthread.c)
+int thread_create(void (*start_routine)(void*), void *arg);
+int thread_join();
+
 #endif // _USER_H_
 
