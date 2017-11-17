@@ -1,3 +1,9 @@
+a) Multiprocess Programming with Shared Memory in Linux
+
+In this project, we have tried to open a shared memory location and then map the same to the virtual memory of the process. This is done for both the server and client process so that they both map to the same temporary memory location. After the initial checks of verifying clientstring length and number of arguments to client, the client maps teh memory and then checks whether any segment is left free in the shared memoryfor it to acquire and write its statistics. Prioer to doing this, the shared memory is locked by mutex. It is unlocked once free memory is found and one segment is claimed. In case none is found, it gracefully exits with an error code. The attributes of elapsed time has been found out by subtracting two timer, one initialized at the start of teh client and teh other at each iteration.                                                                                            
+The server creates the shared memory for the client to write and it only writes the mutex in it for the client to use. The server reads from the other segments ( updated by clients - number 0 to 63)(last segment being occupied by the mutex) and then prints them in the given format.
+
+
 b) xv6 Memory Layout
 Part A: Null-pointer Dereference
 
@@ -6,7 +12,7 @@ Part A: Null-pointer Dereference
 * Then we modified the related make files and wrote a user test 'fault.c' to test the functionality.
 
 Part B: Stack Rearrangement
-*  For this part, we modified the exec.c to allocate first stack page starting at USERTOP. we also made sure stack pointer sp points to right address.
+* For this part, we modified the exec.c to allocate first stack page starting at USERTOP. we also made sure stack pointer sp points to right address.
 * We also modified the proc struct to keep track of stack size using 'stack_sz' variable.
 * We modified the copyuvm in vm.c to make sure that stack pages are also copied.
 * In proc.c, we made sure that the variable stack_sz is copied to new processes in fork.
