@@ -2,6 +2,7 @@
 #include "stat.h"
 #include "user.h"
 #include "x86.h"
+#define PGSIZE 4096
 
 int lock_init(lock_t *ilock){
 	ilock->locked = 0;
@@ -22,7 +23,6 @@ int thread_create(void (*start_routine)(void*), void *arg){
     printf(1,"thread_create: Stack Location : %x\n",t_stack);
     return -1;
 }
-
 
 int thread_join(){
     printf(1,"thread_join\n");

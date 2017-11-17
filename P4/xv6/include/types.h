@@ -11,10 +11,6 @@ typedef uint pde_t;
 #define NULL (0)
 #endif
 
-#ifndef PGSIZE
-#define PGSIZE 4096
-#endif
-
 typedef struct {
   uint locked;
 } lock_t;
