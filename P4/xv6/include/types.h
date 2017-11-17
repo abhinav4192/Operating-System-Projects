@@ -15,6 +15,12 @@ typedef struct {
   uint locked;
 } lock_t;
 
+typedef struct {
+  uint token;
+  uint curr;
+  lock_t qlock;
+} cond_t;
+
 
 
 #endif //_TYPES_H_

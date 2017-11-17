@@ -53,11 +53,11 @@ found:
     return 0;
   }
   sp = p->kstack + KSTACKSIZE;
-  
+
   // Leave room for trap frame.
   sp -= sizeof *p->tf;
   p->tf = (struct trapframe*)sp;
-  
+
   // Set up new context to start executing at forkret,
   // which returns to trapret.
   sp -= 4;
@@ -77,7 +77,7 @@ userinit(void)
 {
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
-  
+
   p = allocproc();
   acquire(&ptable.lock);
   initproc = p;
@@ -107,7 +107,7 @@ int
 growproc(int n)
 {
   uint sz;
-  
+
   sz = proc->sz;
   if(n > 0){
     if((sz = allocuvm(proc->pgdir, sz, sz + n)) == 0)
@@ -152,12 +152,58 @@ fork(void)
     if(proc->ofile[i])
       np->ofile[i] = filedup(proc->ofile[i]);
   np->cwd = idup(proc->cwd);
- 
+
   pid = np->pid;
   np->state = RUNNABLE;
   safestrcpy(np->name, proc->name, sizeof(proc->name));
   return pid;
 }
+
+int clone(void(*fcn)(void*), void *arg, void *stack){
+    // cprintf("proc clone\n");
+
+    int i, pid;
+	struct proc *np;
+
+	// Allocate process.
+	if((np = allocproc()) == 0)
+	return -1;
+
+	// Share Address space
+	np->pgdir = proc->pgdir;
+	np->sz = proc->sz;
+	np->parent = proc;
+	*np->tf = *proc->tf;
+
+    // Set location of thread stack (needed for join call)
+	np->thread_stack = stack;
+
+    // prepare function call
+    uint ustack[2];
+	ustack[0] = 0xffffffff;
+	ustack[1] = (uint) arg;
+    // cprintf("proc clone: np->tf->esp: %d, stack:%d\n",np->tf->esp,stack);
+    np->tf->esp = (uint)stack - 8;
+    // cprintf("proc clone: np->tf->esp: %d\n",np->tf->esp);
+    // copy arguments from ustack
+	copyout(np->pgdir, np->tf->esp, ustack, 8);
+    // Set instruction pointer to function
+	np->tf->eip = (uint)fcn;
+
+    //Clear %eax so that fork returns 0 in the child.
+	np->tf->eax = 0;
+    for(i = 0; i < NOFILE; i++)
+        if(proc->ofile[i])
+            np->ofile[i] = filedup(proc->ofile[i]);
+	np->cwd = idup(proc->cwd);
+
+	pid = np->pid;
+	np->state = RUNNABLE;
+	safestrcpy(np->name, proc->name, sizeof(proc->name));
+    return pid;
+
+}
+
 
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
@@ -245,6 +291,51 @@ wait(void)
   }
 }
 
+
+int join(void **stack){
+    // cprintf("proc join\n");
+
+    struct proc *p;
+    int thread_count, pid;
+
+    acquire(&ptable.lock);
+    for(;;){
+        thread_count = 0;
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+
+            if(p->parent != proc )
+                continue;
+            // Join should not handle child(forked) processes
+            // In forked processes page table would point to different locations.
+            if(p->pgdir != proc->pgdir )
+                continue;
+            thread_count = 1;
+            if(p->state == ZOMBIE ){
+                pid = p->pid;
+                p->state = UNUSED;
+                p->pid = 0;
+                p->parent = 0;
+                p->name[0] = 0;
+                p->killed = 0;
+                // cprintf("proc join: thread_stack: %d\n",p->thread_stack);
+                *stack=p->thread_stack;
+                // cprintf("proc join: stack: %d\n",*stack);
+                release(&ptable.lock);
+                return pid;
+            }
+        }
+
+        // No point waiting if we don't have any children.
+        if(!thread_count || proc->killed){
+            release(&ptable.lock);
+            return -1;
+        }
+        // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+        sleep(proc, &ptable.lock);  //DOC: wait-sleep
+    }
+}
+
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -322,7 +413,7 @@ forkret(void)
 {
   // Still holding ptable.lock from scheduler.
   release(&ptable.lock);
-  
+
   // Return to "caller", actually trapret (see allocproc).
 }
 
@@ -425,7 +516,7 @@ procdump(void)
   struct proc *p;
   char *state;
   uint pc[10];
-  
+
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->state == UNUSED)
       continue;
@@ -441,6 +532,49 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+void l_acquire(lock_t *ilock){
+	while(xchg(&ilock->locked, 1) != 0);
+}
+
+void l_release(lock_t *ilock){
+	xchg(&ilock->locked, 0);
+}
+
+void cwait(cond_t * iCond, lock_t * iLock){
+    cprintf("proc cwait\n");
+    acquire(&ptable.lock);
+    l_release(&iCond->qlock);
+    l_release(iLock);
+
+    // Go to sleep.
+    proc->thread_token_num = iCond->token;
+    proc->cond = iCond;
+    proc->state = SLEEPING;
+    sched();
+
+    // Tidy up.
+    proc->thread_token_num = 0;
+    proc->cond = NULL;
+
+    // Reacquire original lock.
+    release(&ptable.lock);
+    l_acquire(iLock);
+}
+
+
+
+void csignal(cond_t * iCond){
+    cprintf("proc csignal\n");
+    acquire(&ptable.lock);
+    struct proc *p;
+
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+        if(p->state == SLEEPING && p->cond == iCond && p->thread_token_num == iCond->curr)
+            p->state = RUNNABLE;
+    release(&ptable.lock);
+    l_release(&iCond->qlock);
 }
 
 
