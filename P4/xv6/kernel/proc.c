@@ -245,12 +245,24 @@ exit(void)
   // Parent might be sleeping in wait().
   wakeup1(proc->parent);
 
-  // Pass abandoned children to init.
+  // Pass abandoned children/thread to init.
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->parent == proc){
-      p->parent = initproc;
-      if(p->state == ZOMBIE)
-        wakeup1(initproc);
+      if(p->pgdir != proc->pgdir){
+          p->parent = initproc;
+          if(p->state == ZOMBIE)
+            wakeup1(initproc);
+      } else {
+           // kill thread
+           // p->parent = initproc;
+           // p->state = ZOMBIE;
+           p->state = UNUSED;
+           p->pid = 0;
+           p->parent = 0;
+           p->name[0] = 0;
+           p->killed = 0;
+           p->thread_stack = (void *) 0;
+      }
     }
   }
 
@@ -335,6 +347,7 @@ int join(void **stack){
                 p->killed = 0;
                 // cprintf("proc join: thread_stack: %d\n",p->thread_stack);
                 *stack=p->thread_stack;
+                p->thread_stack = (void *) 0;
                 // cprintf("proc join: stack: %d\n",*stack);
                 release(&ptable.lock);
                 return pid;

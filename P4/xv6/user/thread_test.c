@@ -26,25 +26,35 @@ void cv_test(){
     // Lock not acquired
     // cond_wait(&t,&l);
 
-    // Queue Full
-    for(int i=0;i<9;i++){
+    for(int i=0;i<8;i++){
         printf(1,"cv_test: %d\n",i+1);
         thread_create(test_thread_02,(void*)&d);
     }
 }
 
+void zombie_test(){
+    for(int i=0;i<15;i++){
+        printf(1,"zombie_test: %d\n",i+1);
+        thread_create(test_thread_01,(void*)&d);
+    }
+    // for(int i=0;i<15;i++){
+    //     printf(1,"zombie_test: %d\n",i+1);
+    //     thread_join();
+    // }
+}
 
 int main(int argc, char *argv[])
 {
 
-    for (int i=1;i<=50;i++){
-        printf(1,"Running loop: %d\n",i);
-        for(int j=0;j<8;j++)
-            thread_create(test_thread_01,(void*)&d);
-        for(int j=0;j<8;j++)
-            thread_join();
-    }
+    // for (int i=1;i<=50;i++){
+    //     printf(1,"Running loop: %d\n",i);
+    //     for(int j=0;j<8;j++)
+    //         thread_create(test_thread_01,(void*)&d);
+    //     for(int j=0;j<8;j++)
+    //         thread_join();
+    // }
 
     // cv_test();
+    zombie_test();
     exit();
 }

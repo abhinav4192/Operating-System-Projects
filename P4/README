@@ -1,0 +1,19 @@
+Project4
+
+Project 4a: Scalable Web Server
+// Todo: Bidyut should add.
+
+Project 4b: xv6 Kernel Threads
+
+* We first created the user thread library uthread.c with thread_create and thread_join methods. We allocated memory for stack in thread_create, and freed that in thread_join.
+* After that, we started implementing clone and join system call. We modified the related files like sysproc.c to implement the system call. After that wrote a stub method clone and join in proc.c. At this point these methods would just print the method name and input arguments(will no do any actual work).
+* One we ensured that correct values of fcn,arg,stack are reaching clone and join in proc.c, we started implementing clone and join methods in proc.c
+* For clone we referenced exec and fork methods: we allocated new process, shared the address space with calling process, filled the ustack and copied it to stack, and set the stack pointer and instruction pointer properly.
+* For join we referenced wait method: we made sure not to handle forked processes and set the value to input parameter stack to correct stack location. We also modifed wait method to not handle threads.
+* We added a trap handler to handle fake return at 0xffffffff and kill the process.
+* We modified the growproc to correctly set the size in all threads.
+* After that we defined lock_t and cond_t struct in types.h
+* We implemented lock methods lock_init, lock_acquire, lock_release in thread library uthread.c
+* We implemented cond_init in thread library uthread.c.
+* We then implemented system calls for cond_wait and cond_signal.
+* Upon testing with some test cases and noticing kernel panic, we modified the exit to kill the threads created by exiting process.
