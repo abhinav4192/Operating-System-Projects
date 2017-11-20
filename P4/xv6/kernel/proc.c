@@ -116,7 +116,17 @@ growproc(int n)
     if((sz = deallocuvm(proc->pgdir, sz, sz + n)) == 0)
       return -1;
   }
-  proc->sz = sz;
+
+  // Update size in all threads
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pgdir == proc->pgdir){
+      p->sz = sz;
+    }
+  }
+
+  release(&ptable.lock);
   switchuvm(proc);
   return 0;
 }
@@ -182,9 +192,11 @@ int clone(void(*fcn)(void*), void *arg, void *stack){
     uint ustack[2];
 	ustack[0] = 0xffffffff;
 	ustack[1] = (uint) arg;
-    // cprintf("proc clone: np->tf->esp: %d, stack:%d\n",np->tf->esp,stack);
-    np->tf->esp = (uint)stack - 8;
-    // cprintf("proc clone: np->tf->esp: %d\n",np->tf->esp);
+
+    // stack gives location od bottom of stack.
+    // set stack pointer = top of stack - 8
+    np->tf->esp = (uint)stack + PGSIZE- 8;
+
     // copy arguments from ustack
 	copyout(np->pgdir, np->tf->esp, ustack, 8);
     // Set instruction pointer to function
@@ -262,6 +274,10 @@ wait(void)
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->parent != proc)
+        continue;
+      // Wait should not handle threads
+      // In threads page table would point to same location
+      if(p->pgdir == proc->pgdir )
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){
@@ -543,7 +559,8 @@ void l_release(lock_t *ilock){
 }
 
 void cwait(cond_t * iCond, lock_t * iLock){
-    cprintf("proc cwait\n");
+    // cprintf("proc cwait\n");
+
     acquire(&ptable.lock);
     l_release(&iCond->qlock);
     l_release(iLock);
@@ -563,10 +580,8 @@ void cwait(cond_t * iCond, lock_t * iLock){
     l_acquire(iLock);
 }
 
-
-
 void csignal(cond_t * iCond){
-    cprintf("proc csignal\n");
+    // cprintf("proc csignal\n");
     acquire(&ptable.lock);
     struct proc *p;
 

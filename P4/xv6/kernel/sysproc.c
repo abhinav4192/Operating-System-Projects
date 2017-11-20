@@ -94,35 +94,33 @@ int sys_clone(void){
     void(*fcn)(void*);
     void *arg;
     void* stack;
-    if(argptr(0, (void *)&fcn, sizeof(fcn)) < 0 || argptr(1, (void *)&arg, sizeof(arg)) || argptr(2, (void *)&stack, sizeof(stack))) {
+    if(argptr(0, (void *)&fcn, sizeof(*fcn)) < 0 || argptr(1, (void *)&arg, sizeof(*arg))
+     || argptr(2, (void *)&stack, sizeof(*stack))) {
         cprintf("sys_clone error\n");
         return -1;
     }
     // else{
     //     cprintf("fcn: %d, arg: %d, stack %d \n",fcn,arg,stack);
     // }
-    int pid = clone(fcn,arg,stack);
-    return pid;
+    return clone(fcn,arg,stack);
 }
 
 int sys_join(void){
     // cprintf("sys_join\n");
     void **stack;
-    if(argptr(0, (void *)&stack, sizeof(stack))) {
+    if(argptr(0, (void *)&stack, sizeof(*stack))) {
         cprintf("sys_join error\n");
         return -1;
     }
     // cprintf("sys_join stack:%d\n",*stack);
-    int pid = join(stack);
-    // cprintf("sys_join stack:%d\n",*stack);
-    return pid;
+    return join(stack);;
 }
 
 int sys_cwait(void){
     // cprintf("sys_cwait\n");
     cond_t * iCond;
     lock_t * iLock;
-    if(argptr(0, (void *)&iCond, sizeof(iCond)) || argptr(1, (void *)&iLock, sizeof(iLock))) {
+    if(argptr(0, (void *)&iCond, sizeof(*iCond)) || argptr(1, (void *)&iLock, sizeof(*iLock))) {
         cprintf("sys_cwait error\n");
         return -1;
     }
@@ -136,7 +134,7 @@ int sys_cwait(void){
 int sys_csignal(void){
     // cprintf("sys_csignal\n");
     cond_t * iCond;
-    if(argptr(0, (void *)&iCond, sizeof(iCond))) {
+    if(argptr(0, (void *)&iCond, sizeof(*iCond))) {
         cprintf("sys_csignal error\n");
         return -1;
     }

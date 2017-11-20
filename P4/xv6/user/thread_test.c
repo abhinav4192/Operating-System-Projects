@@ -3,30 +3,48 @@
 #include "user.h"
 
 int global = 0;
+int d = 1;
+cond_t t;
+lock_t l;
 
-void test_thread_01(){
-    for(int i=0 ;i < 100000;i++){
+void test_thread_01(void* arg_ptr){
+    for(int i=0 ;i < 10;i++){
         global++;
     }
 }
 
-void create_01(){
-    thread_create(test_thread_01,NULL);
+void test_thread_02(void* arg_ptr){
+    lock_acquire(&l);
+    cond_wait(&t,&l);
+    lock_release(&l);
 }
 
-void join_01(){
-    thread_join();
+
+void cv_test(){
+    cond_init(&t);
+    lock_init(&l);
+    // Lock not acquired
+    // cond_wait(&t,&l);
+
+    // Queue Full
+    for(int i=0;i<9;i++){
+        printf(1,"cv_test: %d\n",i+1);
+        thread_create(test_thread_02,(void*)&d);
+    }
 }
 
 
 int main(int argc, char *argv[])
 {
-    for(int i=0;i<10;i++){
-        create_01();
+
+    for (int i=1;i<=50;i++){
+        printf(1,"Running loop: %d\n",i);
+        for(int j=0;j<8;j++)
+            thread_create(test_thread_01,(void*)&d);
+        for(int j=0;j<8;j++)
+            thread_join();
     }
-    for(int i=0;i<4;i++){
-        thread_join();
-    }
-    printf(1,"global: %d\n",global);
+
+    // cv_test();
     exit();
 }

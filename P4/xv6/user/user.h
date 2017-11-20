@@ -48,7 +48,7 @@ int atoi(const char*);
 int lock_init(lock_t *ilock);
 void lock_acquire(lock_t *ilock);
 void lock_release(lock_t *ilock);
-int thread_create(void (*start_routine)(void*), void *arg);
+int thread_create(void (*fcn)(void*), void *arg);
 int thread_join();
 void cond_init(cond_t *iCond);
 void cond_wait(cond_t *iCond, lock_t *ilock);
