@@ -1,7 +1,18 @@
 Project4
 
 Project 4a: Scalable Web Server
-// Todo: Bidyut should add.
+
+SCALABLE WEB SERVER : The code implements multiple threads support for a scalable webserver. Steps taken :
+  1. Main thread initializes the number of worker threads and max client buffer size.
+  2. The client buffer size provided as argument helps to make a queue for the incoming connection file descriptor's.
+  3. The queue is implemented as a circular array, wherein packets are dequeued based on FIFO.
+  4. Main thread spawns a pool of worker  threads and open a socket connection to listen on the specified port.
+  5. Main thread runs a continuous loop to accept new connection in the incoming socket and collects the file descriptor , wherein the data for the connection would be received.
+  6. The worker threads ,also in a loop,  start by checking if buffer queue is empty . It checks the following after placing a lock.
+  If yes, they wait for connections to be placed in the queue. If not, it dequeues a connection and then signals the main thread using a condition variable "empty" so that it can fill in a new connection next time it runs.
+  7. When the main threads accepts a connection and is scheduled to tun, it uses a mutex to check if the queue is not full. If not, it
+  goes ahead and inserts a  new connection into the queue. After this it signals the worker threads, by using another CV "full" ,to wake up and start removing connection next time they run.
+  8. Thus the buffer queue is locked before any operation on it and the worker and main threads accomplish concurrency.
 
 Project 4b: xv6 Kernel Threads
 
