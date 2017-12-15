@@ -1,0 +1,8 @@
+Project 5: File System Checker
+
+* First I looked at fs.h and mkfs.c to understand how files and directories are organised in xv6 and how does mkfs generates file image.
+* After that I learned to get inodes and xv6_dirent from the file system image.
+* After that I implemented various checks to ensure that inodes and data blocks the correct in the image. For this I stored data block bitmap, checked if block numbers are in range and are valid, are not repeated etc.
+* Then I implemented checks for Directory Structure. To preform these checks, I kept record of marked inodes, inodes referred in directories, links each life have, inodes of T_DIR types etc. Using these records I implemented checks to ensure that File system is correct.
+* I also had to copy definitions of various structs like superblock and dinode to be able to cast to these types.
+** I have not implemented file repair.
